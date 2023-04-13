@@ -7,6 +7,7 @@ import transformers
 import torch
 import torch.nn as nn
 import torch.optim as optim
+from torch.profiler import profile, record_function, ProfilerActivity
 
 from torch.utils.data import Dataset, DataLoader
 from tqdm.auto import tqdm
@@ -136,8 +137,8 @@ class CLEVRERDataset(Dataset):
         vid_json = self.json_data[idx]
         vid_id = vid_json['scene_index']
         frame_dir = os.path.join(self.frame_dir, f"sim_{vid_id:05d}", "*.png")
-        frame_paths = glob(frame_dir)
-        frames = torch.stack([torchvision.io.read_image(img).float() for img in frame_paths])
+        frame_paths = sorted(glob(frame_dir))
+        frames = torch.stack([torchvision.io.read_image(img).float() for img in frame_paths[::5]])
                 
         ques_dict, answer_dict = self.process_questions.get_qa_batch(vid_json['questions'])
 #         answers = torch.LongTensor(answers)
@@ -172,7 +173,7 @@ class ExplanatoryTaskHead(nn.Module):
 		)
 
 	def forward(self, features):
-		return self.clf(features).squeeze()
+		return self.clf(features).reshape(-1)
 
 class PredictiveTaskHead(nn.Module):
 	
@@ -203,7 +204,7 @@ class CounterfactualTaskHead(nn.Module):
 		)
 
 	def forward(self, features):
-		return self.clf(features).squeeze()
+		return self.clf(features).reshape(-1)
 
 class BertCNNModel(nn.Module):
     
@@ -242,14 +243,15 @@ class BertCNNModel(nn.Module):
     def forward(self, example):
         
         N, C, H, W = example['frames'].shape
-        i = 0
-        bs = 8
-        frame_emb = []
-        while (i*bs < N):
-            frame_emb += [self.cnn(example['frames'][i*bs:(i+1)*bs])]
-            i += 1
-            
-        frame_emb = torch.vstack(frame_emb)
+        # i = 0
+        # bs = 8
+        # frame_emb = []
+        # while (i*bs < N):
+        #     frame_emb += [self.cnn(example['frames'][i*bs:(i+1)*bs])]
+        #     i += 1
+        #     
+        # frame_emb = torch.vstack(frame_emb)
+        frame_emb = self.cnn(example['frames'])
         frame_encs, (video_enc, last_cell_state) = self.lstm(frame_emb, (self.h0, self.c0))
         
         # faster to batch everything and send, but this works for now
@@ -269,13 +271,13 @@ def dl_collate_fn(data):
     return data[0]
 
 def dict_to_device(d):
-    return {k:v.to(device) for k,v in d.items()}
+    return {k:v.to(device, non_blocking=True) for k,v in d.items()}
 
 def process_example(example, transform):
     return {
-        'frames': transform(example['frames'].to(device)),
-        'ques_dict': dict_to_device(example['ques_dict']),
-        'ans_dict': dict_to_device(example['ans_dict'])
+        'ques_dict': {k:dict_to_device(v) for k,v in example['ques_dict'].items()},
+        'ans_dict': dict_to_device(example['ans_dict']),
+        'frames': transform(example['frames'].to(device, non_blocking=True))
     }
 
 def train(model, train_dl, val_dl, optimizer, scheduler=None, max_epochs=10, patience_lim=2, ckpt_freq=2, ckpt_prefix='../models/baseline'):
@@ -310,9 +312,6 @@ def train(model, train_dl, val_dl, optimizer, scheduler=None, max_epochs=10, pat
             outputs = model(example)
             loss = 0
             for task, output in outputs.items():
-                if len(output.size()) == 0 and len(example['ans_dict'][task]) != 0:
-                    print(f'ERROR: model could not generate answer for eg {eg_no} task {task}')
-                    continue
                 loss += loss_fns[task](output, example['ans_dict'][task])
             
             train_loss += loss.detach().cpu()
@@ -346,7 +345,7 @@ def train(model, train_dl, val_dl, optimizer, scheduler=None, max_epochs=10, pat
         if (epoch+1)%ckpt_freq == 0:
             print('Checkpointing model...')
             torch.save(model, f'{ckpt_prefix}-{epoch+1}.pt')
-            
+          
         if val_loss >= best_val_loss:
             if patience >= patience_lim:
                 break
@@ -359,9 +358,8 @@ def train(model, train_dl, val_dl, optimizer, scheduler=None, max_epochs=10, pat
     return train_losses, val_losses
 
 if __name__ == '__main__':
-    # ## Training
-    n_epochs=4
     
+    n_epochs=10
     img_transform = torchvision.transforms.Compose([torchvision.transforms.Normalize((0.4914, 0.4822, 0.4465),
                                                                          (0.2023, 0.1994, 0.2010))])
     tokenizer = transformers.AutoTokenizer.from_pretrained('bert-base-cased')
@@ -372,18 +370,19 @@ if __name__ == '__main__':
     
     DEBUG = False
     if DEBUG:
-        #train_ds.json_data = train_ds.json_data[:16]
-        train_ds.json_data = [train_ds.json_data[352], train_ds.json_data[353], train_ds.json_data[354]]
-        val_ds.json_data = val_ds.json_data[:8]
-    
-    train_dl = DataLoader(train_ds, batch_size=1, collate_fn=dl_collate_fn, shuffle=True, num_workers=4)
-    val_dl = DataLoader(val_ds, batch_size=1, collate_fn=dl_collate_fn, shuffle=True, num_workers=4)
+        #train_ds.json_data = train_ds.json_data[:128]
+        #train_ds.json_data = [train_ds.json_data[322]]
+        val_ds.json_data = val_ds.json_data[:1]
+        n_epochs=1
+
+    train_dl = DataLoader(train_ds, batch_size=1, collate_fn=dl_collate_fn, shuffle=True, num_workers=8, pin_memory=True)
+    val_dl = DataLoader(val_ds, batch_size=1, collate_fn=dl_collate_fn, shuffle=False, num_workers=8, pin_memory=True)
     
     model = BertCNNModel().to(device)
     
     optimizer = optim.Adam(model.parameters(), lr=1e-5)
     
-    train_losses, val_losses = train(model, train_dl, val_dl, optimizer)
+    train_losses, val_losses = train(model, train_dl, val_dl, optimizer, max_epochs=n_epochs)
     
     plt.figure(figsize=(12,8), dpi=150)
     plt.plot(train_losses, label='train')
