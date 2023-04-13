@@ -135,7 +135,7 @@ class CLEVRERDataset(Dataset):
         
         vid_json = self.json_data[idx]
         vid_id = vid_json['scene_index']
-        frame_dir = os.path.join(self.frame_dir, f"sim_{vid_id:05d}", "*.png")#f"sim_{vid_id:05d}"
+        frame_dir = os.path.join(self.frame_dir, f"sim_{vid_id:05d}", "*.png")
         frame_paths = glob(frame_dir)
         frames = torch.stack([torchvision.io.read_image(img).float() for img in frame_paths])
                 
@@ -301,6 +301,7 @@ def train(model, train_dl, val_dl, optimizer, scheduler=None, max_epochs=10, pat
 
         model.train()
         train_loss = 0
+        eg_no = 0
         for example in tqdm(train_dl):
             
             example = process_example(example, img_transform)
@@ -309,12 +310,16 @@ def train(model, train_dl, val_dl, optimizer, scheduler=None, max_epochs=10, pat
             outputs = model(example)
             loss = 0
             for task, output in outputs.items():
+                if len(output.size()) == 0 and len(example['ans_dict'][task]) != 0:
+                    print(f'ERROR: model could not generate answer for eg {eg_no} task {task}')
+                    continue
                 loss += loss_fns[task](output, example['ans_dict'][task])
             
             train_loss += loss.detach().cpu()
             
             loss.backward()
             optimizer.step()
+            eg_no += 1
 
         train_loss /= len(train_dl)
         train_losses.append(train_loss)
@@ -367,7 +372,8 @@ if __name__ == '__main__':
     
     DEBUG = False
     if DEBUG:
-        train_ds.json_data = train_ds.json_data[:16]
+        #train_ds.json_data = train_ds.json_data[:16]
+        train_ds.json_data = [train_ds.json_data[352], train_ds.json_data[353], train_ds.json_data[354]]
         val_ds.json_data = val_ds.json_data[:8]
     
     train_dl = DataLoader(train_ds, batch_size=1, collate_fn=dl_collate_fn, shuffle=True, num_workers=4)

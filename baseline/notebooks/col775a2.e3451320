@@ -1,0 +1,123 @@
+NOTE : Works with all available python packages in the module, check using conda list command
+For conda env creation we recommend apps/anaconda/3EnvCreation module
+[I 2023-04-13 00:56:33.804 ServerApp] jupyterlab | extension was successfully linked.
+[I 2023-04-13 00:56:33.810 ServerApp] nbclassic | extension was successfully linked.
+[I 2023-04-13 00:56:40.237 ServerApp] notebook_shim | extension was successfully linked.
+[I 2023-04-13 00:56:40.498 ServerApp] notebook_shim | extension was successfully loaded.
+[I 2023-04-13 00:56:40.499 LabApp] JupyterLab extension loaded from /home/cse/btech/cs1200869/.conda/envs/dl_35/lib/python3.7/site-packages/jupyterlab
+[I 2023-04-13 00:56:40.499 LabApp] JupyterLab application directory is /home/cse/btech/cs1200869/.conda/envs/dl_35/share/jupyter/lab
+[I 2023-04-13 00:56:40.503 ServerApp] jupyterlab | extension was successfully loaded.
+[I 2023-04-13 00:56:40.659 ServerApp] nbclassic | extension was successfully loaded.
+[I 2023-04-13 00:56:40.660 ServerApp] Serving notebooks from local directory: /scratch/cse/btech/cs1200869/COL775A2
+[I 2023-04-13 00:56:40.660 ServerApp] Jupyter Server 1.18.1 is running at:
+[I 2023-04-13 00:56:40.661 ServerApp] http://evsky024.hpc.iitd.ac.in:8888/lab?token=a886e798ceb6d0b57f0903534a460bd2011b51fdc4ec2dc0
+[I 2023-04-13 00:56:40.661 ServerApp]  or http://127.0.0.1:8888/lab?token=a886e798ceb6d0b57f0903534a460bd2011b51fdc4ec2dc0
+[I 2023-04-13 00:56:40.661 ServerApp] Use Control-C to stop this server and shut down all kernels (twice to skip confirmation).
+[C 2023-04-13 00:56:40.691 ServerApp] 
+    
+    To access the server, open this file in a browser:
+        file:///home/cse/btech/cs1200869/.local/share/jupyter/runtime/jpserver-30900-open.html
+    Or copy and paste one of these URLs:
+        http://evsky024.hpc.iitd.ac.in:8888/lab?token=a886e798ceb6d0b57f0903534a460bd2011b51fdc4ec2dc0
+     or http://127.0.0.1:8888/lab?token=a886e798ceb6d0b57f0903534a460bd2011b51fdc4ec2dc0
+[W 2023-04-13 00:56:57.731 LabApp] Could not determine jupyterlab build status without nodejs
+[I 2023-04-13 00:57:03.027 ServerApp] Kernel started: c6ffdecb-bec9-4215-a5b5-5b6a6d234448
+[W 2023-04-13 01:01:11.227 ServerApp] Notebook baseline/notebooks/cnn-bert.ipynb is not trusted
+[I 2023-04-13 01:02:47.998 ServerApp] Saving file at /baseline/notebooks/cnn-bert.ipynb
+[W 2023-04-13 01:02:47.999 ServerApp] Notebook baseline/notebooks/cnn-bert.ipynb is not trusted
+[I 2023-04-13 01:04:48.096 ServerApp] Saving file at /baseline/notebooks/cnn-bert.ipynb
+[W 2023-04-13 01:04:48.097 ServerApp] Notebook baseline/notebooks/cnn-bert.ipynb is not trusted
+[I 2023-04-13 01:06:48.168 ServerApp] Saving file at /baseline/notebooks/cnn-bert.ipynb
+[W 2023-04-13 01:06:48.169 ServerApp] Notebook baseline/notebooks/cnn-bert.ipynb is not trusted
+[I 2023-04-13 01:08:48.252 ServerApp] Saving file at /baseline/notebooks/cnn-bert.ipynb
+[W 2023-04-13 01:08:48.253 ServerApp] Notebook baseline/notebooks/cnn-bert.ipynb is not trusted
+[I 2023-04-13 01:10:08.545 ServerApp] Saving file at /baseline/notebooks/cnn-bert.ipynb
+[W 2023-04-13 01:10:08.546 ServerApp] Notebook baseline/notebooks/cnn-bert.ipynb is not trusted
+[I 2023-04-13 01:12:08.613 ServerApp] Saving file at /baseline/notebooks/cnn-bert.ipynb
+[W 2023-04-13 01:12:08.614 ServerApp] Notebook baseline/notebooks/cnn-bert.ipynb is not trusted
+[I 2023-04-13 01:14:08.699 ServerApp] Saving file at /baseline/notebooks/cnn-bert.ipynb
+[W 2023-04-13 01:14:08.701 ServerApp] Notebook baseline/notebooks/cnn-bert.ipynb is not trusted
+[I 2023-04-13 01:16:08.760 ServerApp] Saving file at /baseline/notebooks/cnn-bert.ipynb
+[W 2023-04-13 01:16:08.762 ServerApp] Notebook baseline/notebooks/cnn-bert.ipynb is not trusted
+[I 2023-04-13 01:18:08.835 ServerApp] Saving file at /baseline/notebooks/cnn-bert.ipynb
+[W 2023-04-13 01:18:08.836 ServerApp] Notebook baseline/notebooks/cnn-bert.ipynb is not trusted
+[I 2023-04-13 01:20:08.928 ServerApp] Saving file at /baseline/notebooks/cnn-bert.ipynb
+[W 2023-04-13 01:20:08.929 ServerApp] Notebook baseline/notebooks/cnn-bert.ipynb is not trusted
+[I 2023-04-13 01:20:24.169 ServerApp] Saving file at /baseline/notebooks/cnn-bert.ipynb
+[W 2023-04-13 01:20:24.170 ServerApp] Notebook baseline/notebooks/cnn-bert.ipynb is not trusted
+[I 2023-04-13 01:22:24.240 ServerApp] Saving file at /baseline/notebooks/cnn-bert.ipynb
+[W 2023-04-13 01:22:24.241 ServerApp] Notebook baseline/notebooks/cnn-bert.ipynb is not trusted
+[I 2023-04-13 01:24:24.561 ServerApp] Saving file at /baseline/notebooks/cnn-bert.ipynb
+[W 2023-04-13 01:24:24.562 ServerApp] Notebook baseline/notebooks/cnn-bert.ipynb is not trusted
+[I 2023-04-13 01:24:28.301 ServerApp] Saving file at /baseline/notebooks/cnn-bert.ipynb
+[W 2023-04-13 01:24:28.302 ServerApp] Notebook baseline/notebooks/cnn-bert.ipynb is not trusted
+[I 2023-04-13 01:26:28.355 ServerApp] Saving file at /baseline/notebooks/cnn-bert.ipynb
+[W 2023-04-13 01:26:28.356 ServerApp] Notebook baseline/notebooks/cnn-bert.ipynb is not trusted
+[I 2023-04-13 01:28:28.410 ServerApp] Saving file at /baseline/notebooks/cnn-bert.ipynb
+[W 2023-04-13 01:28:28.410 ServerApp] Notebook baseline/notebooks/cnn-bert.ipynb is not trusted
+[I 2023-04-13 01:30:28.474 ServerApp] Saving file at /baseline/notebooks/cnn-bert.ipynb
+[W 2023-04-13 01:30:28.475 ServerApp] Notebook baseline/notebooks/cnn-bert.ipynb is not trusted
+[I 2023-04-13 01:32:28.996 ServerApp] Saving file at /baseline/notebooks/cnn-bert.ipynb
+[W 2023-04-13 01:32:28.997 ServerApp] Notebook baseline/notebooks/cnn-bert.ipynb is not trusted
+[I 2023-04-13 01:34:29.068 ServerApp] Saving file at /baseline/notebooks/cnn-bert.ipynb
+[W 2023-04-13 01:34:29.069 ServerApp] Notebook baseline/notebooks/cnn-bert.ipynb is not trusted
+[I 2023-04-13 01:36:29.133 ServerApp] Saving file at /baseline/notebooks/cnn-bert.ipynb
+[W 2023-04-13 01:36:29.134 ServerApp] Notebook baseline/notebooks/cnn-bert.ipynb is not trusted
+[I 2023-04-13 01:38:29.232 ServerApp] Saving file at /baseline/notebooks/cnn-bert.ipynb
+[W 2023-04-13 01:38:29.232 ServerApp] Notebook baseline/notebooks/cnn-bert.ipynb is not trusted
+[I 2023-04-13 01:39:35.178 ServerApp] Saving file at /baseline/notebooks/cnn-bert.ipynb
+[W 2023-04-13 01:39:35.179 ServerApp] Notebook baseline/notebooks/cnn-bert.ipynb is not trusted
+[I 2023-04-13 01:39:43.138 ServerApp] Kernel restarted: c6ffdecb-bec9-4215-a5b5-5b6a6d234448
+[I 2023-04-13 01:41:35.242 ServerApp] Saving file at /baseline/notebooks/cnn-bert.ipynb
+[I 2023-04-13 01:43:35.359 ServerApp] Saving file at /baseline/notebooks/cnn-bert.ipynb
+[I 2023-04-13 01:45:35.458 ServerApp] Saving file at /baseline/notebooks/cnn-bert.ipynb
+[I 2023-04-13 01:47:35.560 ServerApp] Saving file at /baseline/notebooks/cnn-bert.ipynb
+[I 2023-04-13 01:49:35.679 ServerApp] Saving file at /baseline/notebooks/cnn-bert.ipynb
+[I 2023-04-13 01:51:35.745 ServerApp] Saving file at /baseline/notebooks/cnn-bert.ipynb
+[I 2023-04-13 01:53:36.811 ServerApp] Saving file at /baseline/notebooks/cnn-bert.ipynb
+[I 2023-04-13 01:55:36.933 ServerApp] Saving file at /baseline/notebooks/cnn-bert.ipynb
+[I 2023-04-13 01:57:37.858 ServerApp] Saving file at /baseline/notebooks/cnn-bert.ipynb
+[I 2023-04-13 01:59:38.135 ServerApp] Saving file at /baseline/notebooks/cnn-bert.ipynb
+[I 2023-04-13 02:00:42.170 ServerApp] Saving file at /baseline/notebooks/cnn-bert.ipynb
+[I 2023-04-13 02:00:44.634 ServerApp] Kernel interrupted: c6ffdecb-bec9-4215-a5b5-5b6a6d234448
+[I 2023-04-13 02:02:43.132 ServerApp] Saving file at /baseline/notebooks/cnn-bert.ipynb
+[I 2023-04-13 02:03:33.748 ServerApp] Kernel interrupted: c6ffdecb-bec9-4215-a5b5-5b6a6d234448
+[I 2023-04-13 02:04:43.361 ServerApp] Saving file at /baseline/notebooks/cnn-bert.ipynb
+[I 2023-04-13 02:06:43.510 ServerApp] Saving file at /baseline/notebooks/cnn-bert.ipynb
+[I 2023-04-13 02:08:42.252 ServerApp] Kernel interrupted: c6ffdecb-bec9-4215-a5b5-5b6a6d234448
+[I 2023-04-13 02:08:43.604 ServerApp] Saving file at /baseline/notebooks/cnn-bert.ipynb
+[I 2023-04-13 02:09:01.525 ServerApp] Kernel interrupted: c6ffdecb-bec9-4215-a5b5-5b6a6d234448
+[I 2023-04-13 02:09:01.900 ServerApp] Kernel interrupted: c6ffdecb-bec9-4215-a5b5-5b6a6d234448
+[I 2023-04-13 02:09:09.927 ServerApp] Kernel interrupted: c6ffdecb-bec9-4215-a5b5-5b6a6d234448
+[I 2023-04-13 02:09:13.636 ServerApp] Kernel interrupted: c6ffdecb-bec9-4215-a5b5-5b6a6d234448
+[I 2023-04-13 02:09:13.880 ServerApp] Kernel interrupted: c6ffdecb-bec9-4215-a5b5-5b6a6d234448
+[I 2023-04-13 02:09:14.087 ServerApp] Kernel interrupted: c6ffdecb-bec9-4215-a5b5-5b6a6d234448
+[I 2023-04-13 02:09:15.286 ServerApp] Saving file at /baseline/notebooks/cnn-bert.ipynb
+[I 2023-04-13 02:09:18.041 ServerApp] Kernel interrupted: c6ffdecb-bec9-4215-a5b5-5b6a6d234448
+[I 2023-04-13 02:09:18.382 ServerApp] Kernel interrupted: c6ffdecb-bec9-4215-a5b5-5b6a6d234448
+[I 2023-04-13 02:09:33.720 ServerApp] Kernel interrupted: c6ffdecb-bec9-4215-a5b5-5b6a6d234448
+[I 2023-04-13 02:09:33.925 ServerApp] Kernel interrupted: c6ffdecb-bec9-4215-a5b5-5b6a6d234448
+[I 2023-04-13 02:09:34.103 ServerApp] Kernel interrupted: c6ffdecb-bec9-4215-a5b5-5b6a6d234448
+[I 2023-04-13 02:09:34.258 ServerApp] Kernel interrupted: c6ffdecb-bec9-4215-a5b5-5b6a6d234448
+[I 2023-04-13 02:09:34.428 ServerApp] Kernel interrupted: c6ffdecb-bec9-4215-a5b5-5b6a6d234448
+[I 2023-04-13 02:09:34.600 ServerApp] Kernel interrupted: c6ffdecb-bec9-4215-a5b5-5b6a6d234448
+[I 2023-04-13 02:09:38.973 ServerApp] Saving file at /baseline/notebooks/cnn-bert.ipynb
+[I 2023-04-13 02:09:40.115 ServerApp] AsyncIOLoopKernelRestarter: restarting kernel (1/5), keep random ports
+[W 2023-04-13 02:09:40.115 ServerApp] kernel c6ffdecb-bec9-4215-a5b5-5b6a6d234448 restarted
+[W 2023-04-13 02:09:40.115 ServerApp] kernel c6ffdecb-bec9-4215-a5b5-5b6a6d234448 restarted
+[I 2023-04-13 02:09:40.123 ServerApp] Starting buffering for c6ffdecb-bec9-4215-a5b5-5b6a6d234448:f92caf53-6fa7-4b99-8206-1d8946ad0ff8
+[I 2023-04-13 02:11:39.068 ServerApp] Saving file at /baseline/notebooks/cnn-bert.ipynb
+[I 2023-04-13 02:13:39.890 ServerApp] Saving file at /baseline/notebooks/cnn-bert.ipynb
+[I 2023-04-13 02:15:40.105 ServerApp] Saving file at /baseline/notebooks/cnn-bert.ipynb
+[I 2023-04-13 02:17:40.329 ServerApp] Saving file at /baseline/notebooks/cnn-bert.ipynb
+[I 2023-04-13 02:19:40.665 ServerApp] Saving file at /baseline/notebooks/cnn-bert.ipynb
+[I 2023-04-13 02:21:26.402 ServerApp] Saving file at /baseline/notebooks/cnn-bert.ipynb
+[I 2023-04-13 02:23:20.449 ServerApp] Kernel interrupted: c6ffdecb-bec9-4215-a5b5-5b6a6d234448
+[I 2023-04-13 02:23:26.491 ServerApp] Saving file at /baseline/notebooks/cnn-bert.ipynb
+[I 2023-04-13 02:24:57.257 ServerApp] Saving file at /baseline/notebooks/cnn-bert.ipynb
+[I 2023-04-13 02:25:32.595 ServerApp] Saving file at /baseline/notebooks/cnn-bert.ipynb
+[C 2023-04-13 02:53:39.198 ServerApp] received signal 15, stopping
+[I 2023-04-13 02:53:39.217 ServerApp] Shutting down 3 extensions
+[I 2023-04-13 02:53:39.218 ServerApp] Shutting down 1 kernel
+[I 2023-04-13 02:53:39.218 ServerApp] Kernel shutdown: c6ffdecb-bec9-4215-a5b5-5b6a6d234448
+[I 2023-04-13 02:53:42.543 ServerApp] Shutting down 0 terminals
