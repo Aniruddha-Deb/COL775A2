@@ -135,7 +135,7 @@ class CLEVRERDataset(Dataset):
         
         vid_json = self.json_data[idx]
         vid_id = vid_json['scene_index']
-        frame_dir = os.path.join(self.frame_dir, f"sim_00005", "*.png")#f"sim_{vid_id:05d}"
+        frame_dir = os.path.join(self.frame_dir, f"sim_{vid_id:05d}", "*.png")#f"sim_{vid_id:05d}"
         frame_paths = glob(frame_dir)
         frames = torch.stack([torchvision.io.read_image(img).float() for img in frame_paths])
                 
