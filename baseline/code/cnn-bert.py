@@ -13,7 +13,7 @@ from torch.utils.data import Dataset, DataLoader
 from tqdm.auto import tqdm
 
 import torchvision
-from skimage import io
+# from skimage import io
 import cv2
 
 import copy, json
@@ -35,6 +35,7 @@ id_option_map = {
 }
 task_heads = ['descriptive', 'explanatory', 'predictive', 'counterfactual']
 binary_id_map = {'wrong': 0, 'correct': 1}
+ques_dict_keys = ["tokens", "q_ids", "choice_ids"]
 
 class ProcessQuestions:
     def __init__(self, tokenizer):
@@ -60,48 +61,55 @@ class ProcessQuestions:
             question_list: list of <question> [SEP] <choice_k>
             answer_list: list of respective answer as binary_id_map correct = 1 / wrong = 0
         '''
-        question_dict = {i:[] for i in task_heads}
-        answer_dict = {i:[] for i in task_heads}
         
+        question_dict = {i:{j:[] for j in ques_dict_keys} for i in task_heads}
+        answer_dict = {i:[] for i in task_heads}
         for j, q in enumerate(ques_list):
             question_type = q['question_type']
             
             if question_type == "descriptive":
-                question = q['question']
-                question_subtype = q['question_subtype']
-                answer = q['answer']
-
-                question_dict[question_type].append(question + " [SEP] " + question_subtype)
-                answer_dict[question_type].append(option_id_map[answer])
+                question_dict[question_type]['tokens'].append(q['question'] + " [SEP] " + q['question_subtype'])
+                question_dict[question_type]['q_ids'].append(q['question_id'])
+                answer_dict[question_type].append(option_id_map[q['answer']])
 
             elif question_type == "explanatory":                
                 question = q['question']
-
+                q_id = q['question_id']                
                 for c, choice in enumerate(q['choices']):
-                    question_dict[question_type].append(question + " [SEP] " + choice['choice'])
+                    question_dict[question_type]['tokens'].append(question + " [SEP] " + choice['choice'])
+                    question_dict[question_type]['q_ids'].append(q_id)
+                    question_dict[question_type]['choice_ids'].append(choice['choice_id'])
                     answer_dict[question_type].append(binary_id_map[choice['answer']])
 
             elif question_type == "predictive":               
                 question = q['question']
-
-#                 for c, choice in enumerate(q['choices']):
-#                     question_dict[question_type].append(question + " [SEP] " + choice['choice'])
-#                     answer_dict[question_type].append(binary_id_map[choice['answer']])
-                question_dict[question_type].append(question + " [SEP] " + q['choices'][0]['choice'] + " [SEP] " + q['choices'][1]['choice'])
+                q_id = q['question_id']                
+                for c, choice in enumerate(q['choices']):
+                    question_dict[question_type]['tokens'].append(question + " [SEP] " + choice['choice'])
+                    question_dict[question_type]['q_ids'].append(q_id)
+                    question_dict[question_type]['choice_ids'].append(choice['choice_id'])
+                    answer_dict[question_type].append(binary_id_map[choice['answer']])
                 
-                answer_dict[question_type].append(binary_id_map[q['choices'][1]['answer']]) #  binary_id_map[q['choices'][0]['answer']], binary_id_map[q['choices'][1]['answer']]])
+#                 question_dict[question_type].append(question + " [SEP] " + q['choices'][0]['choice'] + " [SEP] " + q['choices'][1]['choice'])               
+#                 answer_dict[question_type].append(binary_id_map[q['choices'][1]['answer']]) #  binary_id_map[q['choices'][0]['answer']], binary_id_map[q['choices'][1]['answer']]])
+
             elif question_type == "counterfactual":               
                 question = q['question']
-
+                q_id = q['question_id']                
                 for c, choice in enumerate(q['choices']):
-                    question_dict[question_type].append(question + " [SEP] " + choice['choice'])
+                    question_dict[question_type]['tokens'].append(question + " [SEP] " + choice['choice'])
+                    question_dict[question_type]['q_ids'].append(q_id)
+                    question_dict[question_type]['choice_ids'].append(choice['choice_id'])
                     answer_dict[question_type].append(binary_id_map[choice['answer']])
         
         for th in task_heads:
             if answer_dict[th]:
-                question_dict[th] = self.tokenizer(question_dict[th], return_tensors='pt', padding=True)
+                question_dict[th]['tokens'] = self.tokenizer(question_dict[th]['tokens'], return_tensors='pt', padding=True)
+                question_dict[th]['q_ids'] = torch.tensor(question_dict[th]['q_ids'], dtype=torch.long)
+                question_dict[th]['choice_ids'] = torch.tensor(question_dict[th]['choice_ids'], dtype=torch.long)
                 answer_dict[th] = torch.tensor(answer_dict[th], dtype=torch.long)
-                if th == 'explanatory' or th == 'counterfactual':
+                
+                if th != 'descriptive':
                     answer_dict[th] = answer_dict[th].float()
             else:
                 del question_dict[th]
@@ -136,13 +144,14 @@ class CLEVRERDataset(Dataset):
         
         vid_json = self.json_data[idx]
         vid_id = vid_json['scene_index']
+        
         frame_dir = os.path.join(self.frame_dir, f"sim_{vid_id:05d}", "*.png")
         frame_paths = sorted(glob(frame_dir))
         frames = torch.stack([torchvision.io.read_image(img).float() for img in frame_paths[::5]])
                 
-        ques_dict, answer_dict = self.process_questions.get_qa_batch(vid_json['questions'])
-#         answers = torch.LongTensor(answers)
-        return {'frames': frames, 'ques_dict': ques_dict, 'ans_dict': answer_dict}
+        ques_dict, ans_dict = self.process_questions.get_qa_batch(vid_json['questions'])
+
+        return {'frames': frames, 'ques_dict': ques_dict, 'ans_dict': ans_dict}
 
 class DescriptiveTaskHead(nn.Module):
 	
@@ -177,18 +186,19 @@ class ExplanatoryTaskHead(nn.Module):
 
 class PredictiveTaskHead(nn.Module):
 	
-	def __init__(self, n_classes=2, p=0.2, input_dim=768*2):
+	def __init__(self, p=0.2, input_dim=768*2):
 		super().__init__()
 		self.clf = nn.Sequential(
 			nn.Linear(input_dim, 1024),
 			nn.Dropout(p=0.2),
 			nn.ReLU(),
 			nn.Dropout(p=0.2),
-			nn.Linear(1024, n_classes)
+			nn.Linear(1024, 1),
+            nn.Sigmoid()
 		)
 
 	def forward(self, features):
-		return self.clf(features)
+		return self.clf(features).reshape(-1)
 
 class CounterfactualTaskHead(nn.Module):
 	
@@ -256,9 +266,9 @@ class BertCNNModel(nn.Module):
         
         # faster to batch everything and send, but this works for now
         preds = {}
-        for task, questions in example['ques_dict'].items():
+        for task, ques_data in example['ques_dict'].items():
 
-            bert_output = self.bert(**questions)
+            bert_output = self.bert(**ques_data['tokens'])
 
             # feature vector
             features = torch.hstack([video_enc.repeat(bert_output.pooler_output.size(0),1), bert_output.pooler_output])
@@ -270,17 +280,20 @@ class BertCNNModel(nn.Module):
 def dl_collate_fn(data):
     return data[0]
 
-def dict_to_device(d):
-    return {k:v.to(device, non_blocking=True) for k,v in d.items()}
+def ques_to_device(d):
+    return {k: {k_dash: v_dash.to(device) for k_dash, v_dash in v.items()} for k,v in d.items()}
+
+def ans_to_device(d):
+    return {k: v.to(device) for k,v in d.items()}
 
 def process_example(example, transform):
     return {
-        'ques_dict': {k:dict_to_device(v) for k,v in example['ques_dict'].items()},
-        'ans_dict': dict_to_device(example['ans_dict']),
-        'frames': transform(example['frames'].to(device, non_blocking=True))
+        'frames': transform(example['frames'].to(device)),
+        'ques_dict': ques_to_device(example['ques_dict']),
+        'ans_dict': ans_to_device(example['ans_dict'])
     }
 
-def train(model, train_dl, val_dl, optimizer, scheduler=None, max_epochs=10, patience_lim=2, ckpt_freq=2, ckpt_prefix='../models/baseline'):
+def train(model, train_dl, val_dl, optimizer, scheduler=None, max_epochs=10, patience_lim=2, ckpt_freq=1, ckpt_prefix='../models/baseline'):
 
     best_model = None
     best_val_loss = 10000
@@ -292,7 +305,7 @@ def train(model, train_dl, val_dl, optimizer, scheduler=None, max_epochs=10, pat
     
     loss_fns = {
         'descriptive': nn.CrossEntropyLoss(),
-        'predictive': nn.CrossEntropyLoss(),
+        'predictive': nn.BCELoss(),
         'explanatory': nn.BCELoss(),
         'counterfactual': nn.BCELoss()
     }
@@ -325,16 +338,17 @@ def train(model, train_dl, val_dl, optimizer, scheduler=None, max_epochs=10, pat
  
         model.eval()
         val_loss = 0
-        for example in tqdm(val_dl):
-            
-            example = process_example(example, img_transform)
+        with torch.no_grad():
+            for example in tqdm(val_dl):
 
-            outputs = model(example)
-            loss = 0
-            for task, output in outputs.items():
-                loss += loss_fns[task](output, example['ans_dict'][task])
-            
-            val_loss += loss.detach().cpu()
+                example = process_example(example, img_transform)
+
+                outputs = model(example)
+                loss = 0
+                for task, output in outputs.items():
+                    loss += loss_fns[task](output, example['ans_dict'][task])
+
+                val_loss += loss.detach().cpu()
 
         val_loss /= len(val_dl)
         val_losses.append(val_loss)
@@ -359,7 +373,7 @@ def train(model, train_dl, val_dl, optimizer, scheduler=None, max_epochs=10, pat
 
 if __name__ == '__main__':
     
-    n_epochs=10
+    n_epochs=20
     img_transform = torchvision.transforms.Compose([torchvision.transforms.Normalize((0.4914, 0.4822, 0.4465),
                                                                          (0.2023, 0.1994, 0.2010))])
     tokenizer = transformers.AutoTokenizer.from_pretrained('bert-base-cased')
@@ -370,10 +384,10 @@ if __name__ == '__main__':
     
     DEBUG = False
     if DEBUG:
-        #train_ds.json_data = train_ds.json_data[:128]
+        train_ds.json_data = train_ds.json_data[:128]
         #train_ds.json_data = [train_ds.json_data[322]]
-        val_ds.json_data = val_ds.json_data[:1]
-        n_epochs=1
+        val_ds.json_data = val_ds.json_data[:32]
+        n_epochs=2
 
     train_dl = DataLoader(train_ds, batch_size=1, collate_fn=dl_collate_fn, shuffle=True, num_workers=8, pin_memory=True)
     val_dl = DataLoader(val_ds, batch_size=1, collate_fn=dl_collate_fn, shuffle=False, num_workers=8, pin_memory=True)
