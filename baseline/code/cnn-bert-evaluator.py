@@ -2,7 +2,7 @@
 # coding: utf-8
 import os
 from glob import glob
-
+from collections import Counter
 import transformers
 import torch
 import torch.nn as nn
@@ -114,10 +114,70 @@ class ProcessQuestions:
                 del answer_dict[th]
         
         return question_dict, answer_dict
+    
+    def get_q_batch(self, ques_list):
+        '''
+        INPUT:
+        ques_list: list of question_data dictionary
+        OUTPUT: question_dict
+        descriptive: 
+            question_list: list of <question> [SEP] <question_subtype>
+        explanatory:
+            question_list: list of <question> [SEP] <choice_k>
+        predictive:
+            question_list: list of <question> [SEP] <choice_k>
+        counterfactual:
+            question_list: list of <question> [SEP] <choice_k>
+        '''
+        
+        question_dict = {i:{j:[] for j in ques_dict_keys} for i in task_heads}
+        for j, q in enumerate(ques_list):
+            question_type = q['question_type']
+            
+            if question_type == "descriptive":
+                question_dict[question_type]['tokens'].append(q['question'] + " [SEP] " + q['question_subtype'])
+                question_dict[question_type]['q_ids'].append(q['question_id'])
+
+            elif question_type == "explanatory":                
+                question = q['question']
+                q_id = q['question_id']                
+                for c, choice in enumerate(q['choices']):
+                    question_dict[question_type]['tokens'].append(question + " [SEP] " + choice['choice'])
+                    question_dict[question_type]['q_ids'].append(q_id)
+                    question_dict[question_type]['choice_ids'].append(choice['choice_id'])
+
+            elif question_type == "predictive":               
+                question = q['question']
+                q_id = q['question_id']                
+                for c, choice in enumerate(q['choices']):
+                    question_dict[question_type]['tokens'].append(question + " [SEP] " + choice['choice'])
+                    question_dict[question_type]['q_ids'].append(q_id)
+                    question_dict[question_type]['choice_ids'].append(choice['choice_id'])
+      
+            elif question_type == "counterfactual":               
+                question = q['question']
+                q_id = q['question_id']                
+                for c, choice in enumerate(q['choices']):
+                    question_dict[question_type]['tokens'].append(question + " [SEP] " + choice['choice'])
+                    question_dict[question_type]['q_ids'].append(q_id)
+                    question_dict[question_type]['choice_ids'].append(choice['choice_id'])
+        
+        for th in task_heads:
+            if question_dict[th]['tokens']:
+                question_dict[th]['tokens'] = self.tokenizer(question_dict[th]['tokens'], return_tensors='pt', padding=True)
+                question_dict[th]['q_ids'] = torch.tensor(question_dict[th]['q_ids'], dtype=torch.long)
+                question_dict[th]['choice_ids'] = torch.tensor(question_dict[th]['choice_ids'], dtype=torch.long)
+                
+                
+            else:
+                del question_dict[th]
+        
+        return question_dict
+
         
     
 class CLEVRERDataset(Dataset):
-    def __init__(self, data_dir, frame_dir, tokenizer):
+    def __init__(self, data_dir, frame_dir, tokenizer, test=False):
         # TODO load annotations
         assert os.path.isdir(data_dir)
         assert os.path.isdir(frame_dir)
@@ -125,7 +185,8 @@ class CLEVRERDataset(Dataset):
         with open(os.path.join(data_dir, data_dir.split("/")[-1] + ".json"), "r") as f:
             self.json_data = json.load(f)
         self.frame_dir = frame_dir
-        
+        self.test = test
+
         self.process_questions = ProcessQuestions(tokenizer)
         
     
@@ -146,10 +207,13 @@ class CLEVRERDataset(Dataset):
         frame_dir = os.path.join(self.frame_dir, f"sim_{vid_id:05d}", "*.png")
         frame_paths = sorted(glob(frame_dir))
         frames = torch.stack([torchvision.io.read_image(img).float() for img in frame_paths[::5]])
-                
-        ques_dict, ans_dict = self.process_questions.get_qa_batch(vid_json['questions'])
-
-        return {'scene_index': vid_id, 'frames': frames, 'ques_dict': ques_dict, 'ans_dict': ans_dict}
+        if self.test:
+            ques_dict = self.process_questions.get_q_batch(vid_json['questions'])
+            return {'scene_index': vid_id, 'frames': frames, 'ques_dict': ques_dict}
+        else:
+            ques_dict, ans_dict = self.process_questions.get_qa_batch(vid_json['questions'])
+            return {'scene_index': vid_id, 'frames': frames, 'ques_dict': ques_dict, 'ans_dict': ans_dict}
+             
 
 class DescriptiveTaskHead(nn.Module):
 	
@@ -289,7 +353,7 @@ def process_example(example, transform):
     return {
         'frames': transform(example['frames'].to(device)),
         'ques_dict': ques_to_device(example['ques_dict']),
-        'ans_dict': ans_to_device(example['ans_dict'])
+        'ans_dict': ans_to_device(example['ans_dict']) if 'ans_dict' in example else None
     }
 
 def load_checkpoint(file_path):
@@ -314,7 +378,7 @@ class BINARY_PREDS:
     def get_pred(self, output):
         return output.round()
 
-def model_eval(model, eval_dl, output_prefix=None):
+def model_eval(model, eval_dl, output_prefix=None, test=False):
     
     pred_fns = {
         'descriptive': MULTICALSS_PREDS(),
@@ -326,8 +390,10 @@ def model_eval(model, eval_dl, output_prefix=None):
     pred_dict = {k: [] for k in task_heads}
     gold_dict = {k: [] for k in task_heads}
     predictions_json = []
-    accuracy_dict = {k: -1 for k in task_heads}
-    
+    per_opt_accuracy_dict = {k: -1 for k in task_heads}
+    per_ques_accuracy_dict = {k: -1 for k in task_heads}
+    per_ques_dict = {k: [] for k in task_heads}
+
     model.eval()
     with torch.no_grad():
         for example in tqdm(eval_dl):
@@ -339,9 +405,10 @@ def model_eval(model, eval_dl, output_prefix=None):
             
             for task, output in outputs.items():
                 pred = pred_fns[task].get_pred(output).detach().to('cpu').tolist()
-                gold = example['ans_dict'][task].detach().to('cpu').tolist()
                 pred_dict[task].extend(pred)
-                gold_dict[task].extend(gold)
+                if not test:
+                    gold = example['ans_dict'][task].detach().to('cpu').tolist()
+                    gold_dict[task].extend(gold)
                 
                 
                 if task == 'descriptive':
@@ -356,31 +423,43 @@ def model_eval(model, eval_dl, output_prefix=None):
                     choice_ids = example['ques_dict'][task]['choice_ids'].detach().to('cpu').tolist()
                     unique_q_ids = q_ids.unique().detach().to('cpu').tolist()
                     temp_ques_list = [{"question_id": q, "choices": []} for q in unique_q_ids]
-
+                    temp_dict = {q: [] for q in unique_q_ids}
+                    
                     for i, q in enumerate(q_ids):
-                        temp_ques_list[unique_q_ids.index(q)]["choices"].append({"choice_id": choice_ids[i], "answer": id_binary_map[pred[i]]})
 
+                        if not test:
+                            temp_dict[q.item()].append(pred[i] == gold[i])
+                        temp_ques_list[unique_q_ids.index(q)]["choices"].append({"choice_id": choice_ids[i], "answer": id_binary_map[pred[i]]})
+                    
+                    if not test:
+                        for q in unique_q_ids:                        
+                            per_ques_dict[task].append(1 if len(Counter(temp_dict[q])) == 1 else 0)
+                         
                     scene_pred['questions'].extend(temp_ques_list)
 
             predictions_json.append(scene_pred)            
-                
-                    
-                     
-                
-    for th in task_heads:
-        accuracy_dict[th] = accuracy_score(gold_dict[th], pred_dict[th])
     
-    with open(f"{output_prefix}-predictions.json", "w+") as file:
-        json.dump(predictions_json, file)
+    if test:
+        with open(f"{output_prefix}-test-gold.json", "w+") as file:
+            json.dump(gold_dict, file)
+        with open(f"{output_prefix}-test-pred.json", "w+") as file:
+            json.dump(pred_dict, file)
+        with open(f"{output_prefix}-test-predictions.json", "w+") as file:
+            json.dump(predictions_json, file)
+    else:        
+        for th in task_heads:
+            per_opt_accuracy_dict[th] = accuracy_score(gold_dict[th], pred_dict[th])  
+        # print(per_ques_dict)
+        for th in task_heads:
+            if th != 'descriptive':
+                per_ques_accuracy_dict[th] = Counter(per_ques_dict[th])[1]/len(per_ques_dict[th])
 
-    with open(f"{output_prefix}-accuracy.json", "w+") as file:
-        json.dump(accuracy_dict, file)
-         
-    with open(f"{output_prefix}-gold.json", "w+") as file:
-        json.dump(gold_dict, file)
+        with open(f"{output_prefix}-pre-opt-val-accuracy.json", "w+") as file:
+            json.dump(per_opt_accuracy_dict, file)
+        with open(f"{output_prefix}-pre-ques-val-accuracy.json", "w+") as file:
+            json.dump(per_ques_accuracy_dict, file)
     
-    with open(f"{output_prefix}-pred.json", "w+") as file:
-        json.dump(pred_dict, file)
+    
 
 
 if __name__ == '__main__':
@@ -389,19 +468,21 @@ if __name__ == '__main__':
                                                                      (0.2023, 0.1994, 0.2010))])
     tokenizer = transformers.AutoTokenizer.from_pretrained('bert-base-cased')
 
-    eval_ds = CLEVRERDataset("../../../data/data/validation", "../../../clevrer_code/frames", tokenizer)
+    test_ds = CLEVRERDataset("../../../data/data/test", "../../../COL775A2_data/frames", tokenizer, test=True)
+    eval_ds = CLEVRERDataset("../../../data/data/validation", "../../../COL775A2_data/frames", tokenizer)
 
     DEBUG = False
     if DEBUG:
         eval_ds.json_data = eval_ds.json_data[:8]
 
     eval_dl = DataLoader(eval_ds, batch_size=1, collate_fn=dl_collate_fn, shuffle=False, num_workers=8, pin_memory=True)
-
-    model_files = glob('../models/baseline-*.pt')
+    test_dl = DataLoader(test_ds, batch_size=1, collate_fn=dl_collate_fn, shuffle=False, num_workers=8, pin_memory=True)
     
-    for model_file in model_files:
+    model_file = '../models/baseline-3.pt'   
 
-        model = load_checkpoint(model_file)
 
-        model_eval(model, eval_dl, f'../results/{model_file.split("/")[-1].split(".")[0]}')
+    model = load_checkpoint(model_file)
+    
+    # model_eval(model, test_dl, f'../results/{model_file.split("/")[-1].split(".")[0]}', test=True)
+    model_eval(model, eval_dl, f'../results/{model_file.split("/")[-1].split(".")[0]}')
 
