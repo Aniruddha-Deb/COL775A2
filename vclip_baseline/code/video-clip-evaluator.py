@@ -15,6 +15,7 @@ import torchvision
 # from skimage import io
 import cv2
 
+from collections import Counter
 import copy, json, pickle
 import numpy as np
 import matplotlib.pyplot as plt
@@ -42,7 +43,7 @@ class ProcessQuestions:
     def __init__(self, tokenizer, aligner):
         self.tokenizer = tokenizer
         self.aligner = aligner
-        pass
+        
         
     def get_qa_batch(self, ques_list):
         #TODO: get qa batches for the current task_head
@@ -136,10 +137,87 @@ class ProcessQuestions:
                 del answer_dict[th]
         
         return question_dict, answer_dict
-        
-class CLEVRERDataset(Dataset):
     
-    def __init__(self, data_dir, frame_dir, tokenizer, aligner):
+    def get_q_batch(self, ques_list):
+        '''
+        INPUT:
+        ques_list: list of question_data dictionary
+        OUTPUT: question_dict
+        descriptive: 
+            question_list: list of <question> [SEP] <question_subtype>
+        explanatory:
+            question_list: list of <question> [SEP] <choice_k>
+        predictive:
+            question_list: list of <question> [SEP] <choice_k>
+        counterfactual:
+            question_list: list of <question> [SEP] <choice_k>
+        '''
+        
+        question_dict = {i:{j:[] for j in ques_dict_keys} for i in task_heads}
+        for j, q in enumerate(ques_list):
+            question_type = q['question_type']
+            
+            if question_type == "descriptive":
+                caps, cmasks = self.aligner._build_text_seq(self.tokenizer(q['question'] + " [SEP] " + q['question_subtype'], add_special_tokens=False)["input_ids"])
+                # caps, cmasks = caps[None, :], cmasks[None, :]  # bsz=1
+                question_dict[question_type]['caps'].append(caps)
+                question_dict[question_type]['cmasks'].append(cmasks)
+
+                question_dict[question_type]['q_ids'].append(q['question_id'])
+
+            elif question_type == "explanatory":                
+                question = q['question']
+                q_id = q['question_id']                
+                for c, choice in enumerate(q['choices']):
+                    caps, cmasks = self.aligner._build_text_seq(self.tokenizer(question + " [SEP] " + choice['choice'], add_special_tokens=False)["input_ids"])
+                    # caps, cmasks = caps[None, :], cmasks[None, :]  # bsz=1
+                    question_dict[question_type]['caps'].append(caps)
+                    question_dict[question_type]['cmasks'].append(cmasks)
+                    
+                    question_dict[question_type]['q_ids'].append(q_id)
+                    question_dict[question_type]['choice_ids'].append(choice['choice_id'])
+
+            elif question_type == "predictive":               
+                question = q['question']
+                q_id = q['question_id']                
+                for c, choice in enumerate(q['choices']):
+                    caps, cmasks = self.aligner._build_text_seq(self.tokenizer(question + " [SEP] " + choice['choice'], add_special_tokens=False)["input_ids"])
+                    # caps, cmasks = caps[None, :], cmasks[None, :]  # bsz=1
+                    question_dict[question_type]['caps'].append(caps)
+                    question_dict[question_type]['cmasks'].append(cmasks)
+                    
+                    question_dict[question_type]['q_ids'].append(q_id)
+                    question_dict[question_type]['choice_ids'].append(choice['choice_id'])
+
+            elif question_type == "counterfactual":               
+                question = q['question']
+                q_id = q['question_id']                
+                for c, choice in enumerate(q['choices']):
+                    caps, cmasks = self.aligner._build_text_seq(self.tokenizer(question + " [SEP] " + choice['choice'], add_special_tokens=False)["input_ids"])
+                    # caps, cmasks = caps[None, :], cmasks[None, :]  # bsz=1
+                    question_dict[question_type]['caps'].append(caps)
+                    question_dict[question_type]['cmasks'].append(cmasks)
+                    
+                    question_dict[question_type]['q_ids'].append(q_id)
+                    question_dict[question_type]['choice_ids'].append(choice['choice_id'])
+        
+        for th in task_heads:
+            if question_dict[th]['caps']:
+                question_dict[th]['caps'] = torch.stack(question_dict[th]['caps'])
+                question_dict[th]['cmasks'] = torch.stack(question_dict[th]['cmasks'])
+                question_dict[th]['q_ids'] = torch.tensor(question_dict[th]['q_ids'], dtype=torch.long)
+                question_dict[th]['choice_ids'] = torch.tensor(question_dict[th]['choice_ids'], dtype=torch.long)
+                
+                
+            else:
+                del question_dict[th]
+        
+        return question_dict
+
+        
+    
+class CLEVRERDataset(Dataset):
+    def __init__(self, data_dir, frame_dir, tokenizer, aligner, test=False):
         # TODO load annotations
         assert os.path.isdir(data_dir)
         assert os.path.isdir(frame_dir)
@@ -147,7 +225,8 @@ class CLEVRERDataset(Dataset):
         with open(os.path.join(data_dir, data_dir.split("/")[-1] + ".json"), "r") as f:
             self.json_data = json.load(f)
         self.frame_dir = frame_dir
-        
+        self.test = test
+
         self.process_questions = ProcessQuestions(tokenizer, aligner)
         
     
@@ -168,10 +247,13 @@ class CLEVRERDataset(Dataset):
         frame_dir = os.path.join(self.frame_dir, f"sim_{vid_id:05d}", "*.png")
         frame_paths = sorted(glob(frame_dir))
         frames = torch.stack([torchvision.io.read_image(img).float() for img in frame_paths])
-                
-        ques_dict, ans_dict = self.process_questions.get_qa_batch(vid_json['questions'])
-
-        return {'frames': frames, 'ques_dict': ques_dict, 'ans_dict': ans_dict}
+        if self.test:
+            ques_dict = self.process_questions.get_q_batch(vid_json['questions'])
+            return {'scene_index': vid_id, 'frames': frames, 'ques_dict': ques_dict}
+        else:
+            ques_dict, ans_dict = self.process_questions.get_qa_batch(vid_json['questions'])
+            return {'scene_index': vid_id, 'frames': frames, 'ques_dict': ques_dict, 'ans_dict': ans_dict}
+             
 
 class DescriptiveTaskHead(nn.Module):
 	
@@ -268,7 +350,7 @@ class VideoCLIPModel(nn.Module):
         while (prev+bs <= N):
             frame_emb += [example['frames'][prev:prev+bs].permute(0,2,3,1)]
             prev += bs+2
-
+        # print(len(frame_emb))
         video_frames = torch.stack(frame_emb).unsqueeze(0).reshape(1, (N-8)//bs, bs, H, W, C)
         del frame_emb
         
@@ -322,135 +404,153 @@ def process_example(example, transform):
     return {
         'frames': transform(example['frames'].to(device)),
         'ques_dict': ques_to_device(example['ques_dict']),
-        'ans_dict': ans_to_device(example['ans_dict'])
+        'ans_dict': ans_to_device(example['ans_dict']) if 'ans_dict' in example else None
     }
 
-def train(model, train_dl, val_dl, optimizer, scheduler=None, start_epoch = 0, max_epochs=10, patience_lim=2, ckpt_freq=1, ckpt_prefix='./runs/retri/videoclip/models/vc-baseline'):
+def load_checkpoint(file_path):
 
-    best_model = None
-    best_val_loss = 10000
-    val_losses = []
-    train_losses = []
-    val_question_count = {t:0 for t in task_heads}
+    print("loading model:", file_path)
+    model = torch.load(file_path).to(device)
+    print("model load successful...")
+
+    return model
+
+class MULTICALSS_PREDS:
+    def __init__(self):
+        pass
     
-    patience = 0
+    def get_pred(self, output):
+        return output.argmax(dim=1)
+
+class BINARY_PREDS:
+    def __init__(self):
+        pass
     
-    loss_fns = {
-        'descriptive': nn.CrossEntropyLoss(),
-        'predictive': nn.BCELoss(),
-        'explanatory': nn.BCELoss(),
-        'counterfactual': nn.BCELoss()
+    def get_pred(self, output):
+        return output.round()
+
+def model_eval(model, eval_dl, output_prefix=None, test=False):
+    
+    pred_fns = {
+        'descriptive': MULTICALSS_PREDS(),
+        'predictive': BINARY_PREDS(),
+        'explanatory': BINARY_PREDS(),
+        'counterfactual': BINARY_PREDS()
     }
     
-    for epoch in range(start_epoch, max_epochs):
+    pred_dict = {k: [] for k in task_heads}
+    gold_dict = {k: [] for k in task_heads}
+    predictions_json = []
+    per_opt_accuracy_dict = {k: -1 for k in task_heads}
+    per_ques_accuracy_dict = {k: -1 for k in task_heads}
+    per_ques_dict = {k: [] for k in task_heads}
 
-        print(f"\n\n|----------- EPOCH: {epoch} -----------|")
-
-        model.train()
-        train_loss = 0
-        eg_no = 0
-        for example in tqdm(train_dl):
+    model.eval()
+    with torch.no_grad():
+        for example in tqdm(eval_dl):
+            scene_pred = {'scene_index': example['scene_index'], 'questions': []}
+            
             example = process_example(example, img_transform)
-                        
-            optimizer.zero_grad()
+
             outputs = model(example)
-            loss = 0
+            
             for task, output in outputs.items():
-                loss += loss_fns[task](output, example['ans_dict'][task])
-            
-            train_loss += loss.detach().cpu()
-            
-            loss.backward()
-            optimizer.step()
-            eg_no += 1
+                pred = pred_fns[task].get_pred(output).detach().to('cpu').tolist()
+                pred_dict[task].extend(pred)
+                if not test:
+                    gold = example['ans_dict'][task].detach().to('cpu').tolist()
+                    gold_dict[task].extend(gold)
+                
+                
+                if task == 'descriptive':
+                    q_ids = example['ques_dict'][task]['q_ids'].detach().to('cpu').tolist()
+                    for i in range(len(q_ids)):
+                        scene_pred['questions'].append({"question_id" : q_ids[i], "answer": id_option_map[pred[i]]})
+                
+                else:
+                    q_ids = example['ques_dict'][task]['q_ids']
+                    assert len(q_ids) == len(pred)
 
-        train_loss /= len(train_dl)
-        train_losses.append(train_loss)
+                    choice_ids = example['ques_dict'][task]['choice_ids'].detach().to('cpu').tolist()
+                    unique_q_ids = q_ids.unique().detach().to('cpu').tolist()
+                    temp_ques_list = [{"question_id": q, "choices": []} for q in unique_q_ids]
+                    temp_dict = {q: [] for q in unique_q_ids}
+                    
+                    for i, q in enumerate(q_ids):
 
-        #Saving Model before validation in case node terminates during val then progress will be lost
-        if (epoch+1)%ckpt_freq == 0:
-            print('Checkpointing model...')
-            torch.save(model, f'{ckpt_prefix}-{epoch+1}.pt')
+                        if not test:
+                            temp_dict[q.item()].append(pred[i] == gold[i])
+                        temp_ques_list[unique_q_ids.index(q)]["choices"].append({"choice_id": choice_ids[i], "answer": id_binary_map[pred[i]]})
+                    
+                    if not test:
+                        for q in unique_q_ids:                        
+                            per_ques_dict[task].append(1 if len(Counter(temp_dict[q])) == 1 else 0)
+                         
+                    scene_pred['questions'].extend(temp_ques_list)
 
-        model.eval()
-        val_loss = 0
-        with torch.no_grad():
-            for example in tqdm(val_dl):
+            predictions_json.append(scene_pred)            
+    
+    if test:
+        with open(f"{output_prefix}-test-gold.json", "w+") as file:
+            json.dump(gold_dict, file)
+        with open(f"{output_prefix}-test-pred.json", "w+") as file:
+            json.dump(pred_dict, file)
+        with open(f"{output_prefix}-test-predictions.json", "w+") as file:
+            json.dump(predictions_json, file)
+    else:        
+        for th in task_heads:
+            per_opt_accuracy_dict[th] = accuracy_score(gold_dict[th], pred_dict[th])  
+        # print(per_ques_dict)
+        for th in task_heads:
+            if th != 'descriptive':
+                per_ques_accuracy_dict[th] = Counter(per_ques_dict[th])[1]/len(per_ques_dict[th])
 
-                example = process_example(example, img_transform)
+        with open(f"{output_prefix}-pre-opt-val-accuracy.json", "w+") as file:
+            json.dump(per_opt_accuracy_dict, file)
+        with open(f"{output_prefix}-pre-ques-val-accuracy.json", "w+") as file:
+            json.dump(per_ques_accuracy_dict, file)
+    
+    
 
-                outputs = model(example)
-                loss = 0
-                for task, output in outputs.items():
-                    loss += loss_fns[task](output, example['ans_dict'][task])
-
-                val_loss += loss.detach().cpu()
-
-        val_loss /= len(val_dl)
-        val_losses.append(val_loss)
-            
-        if scheduler:
-            scheduler.step()
-        
-        
-          
-        # if val_loss >= best_val_loss:
-        #     if patience >= patience_lim:
-        #         break
-        #     else:
-        #         patience += 1
-        # else:
-        #     patience = 0
-        #     best_val_loss = val_loss
-        plt.figure(figsize=(12,8), dpi=150)
-        plt.plot(train_losses, label='train')
-        plt.plot(val_losses, label='val')
-        plt.legend()
-        plt.savefig('./runs/retri/videoclip/results/loss_curve.pdf')
-
-    return train_losses, val_losses
 
 if __name__ == '__main__':
     
-    n_epochs=8
-    start_epoch=0
     img_transform = torchvision.transforms.Compose([torchvision.transforms.Resize((224,224))])
 
     vclip_model, tokenizer, aligner = MMPTModel.from_pretrained("projects/retri/videoclip/how2.yaml")
+    del vclip_model
+    torch.cuda.empty_cache()
+
+    test_ds = CLEVRERDataset("../../../data/data/test", "../../../COL775A2_data/frames", tokenizer, aligner, test=True)
+    eval_ds = CLEVRERDataset("../../../data/data/validation", "../../../COL775A2_data/frames", tokenizer, aligner)
     
-    LOAD_CHECKPOINT = True
-    if LOAD_CHECKPOINT:
-        start_epoch = 5
-        del vclip_model
-        torch.cuda.empty_cache()
-        checkpoint = f"./runs/retri/videoclip/models/vc-baseline-{start_epoch}.pt"
-        model = torch.load(checkpoint).to(device)
-        print("@|---------SUCCESSFULLY LOADED CHECKPOINT", checkpoint)
-    else:
-        model = VideoCLIPModel(vclip_model).to(device)        
-        print("@|---------FRESH MODEL INITIALIZED")
-
-    optimizer = optim.Adam(model.parameters(), lr=1e-5)
-    # scheduler = optim.lr_scheduler.CosineAnnealingLR(optimizer, n_epochs, verbose=False)
-
-    train_ds = CLEVRERDataset("../../../data/data/train", "../../../COL775A2_data/frames", tokenizer, aligner)
-    val_ds = CLEVRERDataset("../../../data/data/validation", "../../../COL775A2_data/frames", tokenizer, aligner)
-    val_ds.json_data = val_ds.json_data[:1000]
-
     DEBUG = False
     if DEBUG:
-        train_ds.json_data = train_ds.json_data[:128]
-        #train_ds.json_data = [train_ds.json_data[322]]
-        val_ds.json_data = val_ds.json_data[:32]
-        n_epochs=2
+        eval_ds.json_data = eval_ds.json_data[:8]
+        test_ds.json_data = test_ds.json_data[:8]
 
-    train_dl = DataLoader(train_ds, batch_size=1, collate_fn=dl_collate_fn, shuffle=True, num_workers=16, pin_memory=True)
-    val_dl = DataLoader(val_ds, batch_size=1, collate_fn=dl_collate_fn, shuffle=False, num_workers=16, pin_memory=True)
-    train_losses, val_losses = train(model, train_dl, val_dl, optimizer, start_epoch=start_epoch, max_epochs=n_epochs)
+    eval_dl = DataLoader(eval_ds, batch_size=1, collate_fn=dl_collate_fn, shuffle=False, num_workers=16, pin_memory=True)
+    test_dl = DataLoader(test_ds, batch_size=1, collate_fn=dl_collate_fn, shuffle=False, num_workers=16, pin_memory=True)
+    
+    checkpoints_eval_list = [5, 3]
 
-    plt.figure(figsize=(12,8), dpi=150)
-    plt.plot(train_losses, label='train')
-    plt.plot(val_losses, label='val')
-    plt.legend()
-    plt.savefig('loss_curve.pdf')
+    # uncomment below in case you want to evaluate on val data as well.
+    # for cp in checkpoints_eval_list:        
 
+    #     model_file = f'./runs/retri/videoclip/models/vc-baseline-{cp}.pt'
+    #     print("EVALUATING", model_file)
+
+    #     model = load_checkpoint(model_file)
+        
+        
+    #     model_eval(model, eval_dl, f'../results/{model_file.split("/")[-1].split(".")[0]}')
+
+    # loop for generating prediction results for eval ai on test data for listed models 
+    for cp in checkpoints_eval_list:        
+
+        model_file = f'./runs/retri/videoclip/models/vc-baseline-{cp}.pt'
+        print("EVALUATING", model_file)
+
+        model = load_checkpoint(model_file)
+        
+        model_eval(model, test_dl, f'./runs/retri/videoclip/results/{model_file.split("/")[-1].split(".")[0]}', test=True)
