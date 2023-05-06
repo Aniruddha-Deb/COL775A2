@@ -478,11 +478,15 @@ if __name__ == '__main__':
     eval_dl = DataLoader(eval_ds, batch_size=1, collate_fn=dl_collate_fn, shuffle=False, num_workers=8, pin_memory=True)
     test_dl = DataLoader(test_ds, batch_size=1, collate_fn=dl_collate_fn, shuffle=False, num_workers=8, pin_memory=True)
     
-    model_file = '../models/baseline-3.pt'   
+    checkpoints_eval_list = [4, 6, 8]
 
+    for cp in checkpoints_eval_list:        
 
-    model = load_checkpoint(model_file)
-    
-    # model_eval(model, test_dl, f'../results/{model_file.split("/")[-1].split(".")[0]}', test=True)
-    model_eval(model, eval_dl, f'../results/{model_file.split("/")[-1].split(".")[0]}')
+        model_file = f'../models/baseline-{cp}.pt'
+        print("EVALUATING", model_file)
+
+        model = load_checkpoint(model_file)
+        
+        # model_eval(model, test_dl, f'../results/{model_file.split("/")[-1].split(".")[0]}', test=True)
+        model_eval(model, eval_dl, f'../results/{model_file.split("/")[-1].split(".")[0]}')
 

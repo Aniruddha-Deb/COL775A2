@@ -10,7 +10,7 @@
 ####
 #PBS -l select=1:ncpus=8:mem=24G:ngpus=1:centos=skylake
 ### Specify "wallclock time" required for this job, hhh:mm:ss
-#PBS -l walltime=4:00:00
+#PBS -l walltime=1:30:00
 
 #PBS -l software=PYTORCH
 # After job starts, must goto working directory. 
