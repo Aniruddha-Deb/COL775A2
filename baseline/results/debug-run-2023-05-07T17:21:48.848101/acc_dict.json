@@ -1,0 +1,32 @@
+[
+    {
+        "descriptive": 0.1428571492433548,
+        "explanatory": {
+            "per_q": 0.09375,
+            "per_opt": 0.47448980808258057
+        },
+        "predictive": {
+            "per_q": 0.09375,
+            "per_opt": 0.5
+        },
+        "counterfactual": {
+            "per_q": 0.09375,
+            "per_opt": 0.5126050710678101
+        }
+    },
+    {
+        "descriptive": 0.23629650473594666,
+        "explanatory": {
+            "per_q": 0.125,
+            "per_opt": 0.48469388484954834
+        },
+        "predictive": {
+            "per_q": 0.125,
+            "per_opt": 0.5714285969734192
+        },
+        "counterfactual": {
+            "per_q": 0.125,
+            "per_opt": 0.462184876203537
+        }
+    }
+]

@@ -1,0 +1,16 @@
+Starting Evaluation.....
+Descriptive: 47.11% (25897 / 54976)
+Explanatory:
+    - Per choice: 64.58% (19991 / 30954)
+    - Per question: 22.47% (1915 / 8524)
+Predictive:
+    - Per choice: 54.17% (3859 / 7124)
+    - Per question: 27.85% (992 / 3562)
+Counterfactual:
+    - Per choice: 54.93% (18037 / 32837)
+    - Per question: 11.12% (1032 / 9278)
+Average-per ques.: 27.14
+results_dict: {'Descriptive': 47.10600989522701, 'Explanatory-per opt.': 64.58292950830264, 'Explanatory-per ques.': 22.46597841389019, 'Predictive-per opt.': 54.169006176305444, 'Predictive-per ques.': 27.849522740033688, 'Counterfactual-per opt.': 54.92889118981636, 'Counterfactual-per ques.': 11.123086872170726, 'Average-per ques.': 27.136149480330406}
+Evaluating for Test Phase
+Completed evaluation for Test Phase
+sub_res: {'Descriptive': 47.10600989522701, 'Explanatory-per opt.': 64.58292950830264, 'Explanatory-per ques.': 22.46597841389019, 'Predictive-per opt.': 54.169006176305444, 'Predictive-per ques.': 27.849522740033688, 'Counterfactual-per opt.': 54.92889118981636, 'Counterfactual-per ques.': 11.123086872170726, 'Average-per ques.': 27.136149480330406}
